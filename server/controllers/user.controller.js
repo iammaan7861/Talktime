@@ -1,15 +1,22 @@
 const User = require("../models/userModel");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const generateTokenAndSetCookie = require("../utils/generateTokenAndSetCookie");
 const { v2: cloudinary } = require("cloudinary");
 const Post = require("../models/postModel");
 
 const signupUser = async (req, res) => {
     try {
-        const { name, username, email, password } = req.body;
+        let { name, username, email, password } = req.body;
+        username = username?.trim();
+        email = email?.trim().toLowerCase();
+        name = name?.trim();
+
+        console.log("Signup Request Received:", { name, username, email });
+
         const user = await User.findOne({ $or: [{ email }, { username }] });
 
         if (user) {
+            console.log("Signup Failed: User already exists");
             return res.status(400).json({ error: "User already exists." });
         }
 
@@ -24,6 +31,7 @@ const signupUser = async (req, res) => {
         });
 
         await newUser.save();
+        console.log("New User Successfully Created & Saved:", newUser.username, newUser._id);
         generateTokenAndSetCookie(newUser._id, res);
 
         res.status(201).json({
@@ -36,21 +44,32 @@ const signupUser = async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
-        console.log("Error: ", err);
+        console.log("Error in signupUser: ", err);
     }
 };
 
 const loginUser = async (req, res) => {
     try {
-        const { username, password } = req.body;
-        const user = await User.findOne({ username });
+        let { username, password } = req.body;
+        const input = username?.trim();
+        console.log("Login Request Received for:", input);
+
+        const user = await User.findOne({ 
+            $or: [
+                { username: input }, 
+                { email: input?.toLowerCase() }
+            ] 
+        });
 
         if (!user) {
+            console.log("Login Failed: User Not Found for query:", input);
             return res.status(404).json({ error: "User Not Found" });
         }
+
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         
         if (!isPasswordCorrect) {
+            console.log("Login Failed: Invalid Password for user:", user.username);
             return res.status(400).json({ error: "Invalid Username or Password" });
         }
         
@@ -60,6 +79,9 @@ const loginUser = async (req, res) => {
             user.isFrozen = false;
             await user.save();
         }
+
+        console.log("User Successfully Logged In:", user.username);
+
         res.status(200).json({
             _id: user._id,
             name: user.name,
@@ -70,7 +92,7 @@ const loginUser = async (req, res) => {
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
-        console.log("Error: ", err);
+        console.log("Error in loginUser: ", err);
     }
 };
 
