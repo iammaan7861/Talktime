@@ -31,11 +31,13 @@ app.use('/api/users', userRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/messages', messageRoutes);
 console.log(__dirname)
-if (process.env.NODE_ENV === "production") {
-	app.use(express.static(path.join(__dirname, "../client/dist")));
+const fs = require("fs");
+const distPath = path.join(__dirname, "../client/dist");
+if (fs.existsSync(distPath) || process.env.NODE_ENV === "production") {
+	app.use(express.static(distPath));
 
 	app.get("*", (req, res) => {
-		res.sendFile(path.resolve(__dirname, "../client", "dist", "index.html"));
+		res.sendFile(path.resolve(distPath, "index.html"));
 	});
 }
 httpServer.listen(PORT,(err)=>{
